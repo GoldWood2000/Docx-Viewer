@@ -49,10 +49,15 @@ function searchRelevantSections(db: Database.Database, query: string, limit: num
 }
 
 function buildSystemPrompt(contextSections: string[]): string {
-    const base = '你是一个专业的知识库客服助手。请根据以下知识库内容来回答用户的问题。如果知识库中没有相关信息，请如实告知用户。回答要准确、简洁、有条理。';
+    const base = `你是解悠客服部客服助手，严格遵守以下规则：
+1. 只能根据下方提供的知识库内容回答问题，不得自行发散或补充知识库以外的信息。
+2. 如果知识库中没有相关信息，直接回复"抱歉，这个问题我暂时无法解答。"，不要编造任何内容。
+3. 绝对不能编造、猜测或推断知识库未提及的信息。
+4. 回答请分点列出，关键步骤用**加粗**标注。
+5. 你的职责是总结和归纳知识库内容，不是创作新内容。`;
 
     if (contextSections.length === 0) {
-        return base + '\n\n当前没有检索到相关知识库内容，请根据已有对话上下文尽力回答。';
+        return base + '\n\n当前没有检索到相关知识库内容。请直接回复"抱歉，这个问题我暂时无法解答。"';
     }
 
     return base + '\n\n以下是从知识库中检索到的相关内容：\n\n' + contextSections.join('\n\n---\n\n');
