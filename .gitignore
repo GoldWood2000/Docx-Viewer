@@ -1,0 +1,9 @@
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+.vscode/
+knowledge_base.db
+example_docx
+package-lock.json

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>知识库</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+    <header class="kb-header">
+        <div class="kb-header-left">
+            <button id="outlineToggle" class="kb-icon-btn" title="切换目录">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+            </button>
+            <h1 class="kb-title">知识库</h1>
+            <span id="statsInfo" class="kb-stats"></span>
+        </div>
+        <div class="kb-header-right">
+            <button id="themeToggle" class="kb-icon-btn" title="切换主题">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <div class="kb-layout">
+        <aside id="outlinePanel" class="kb-outline">
+            <div class="kb-outline-header">
+                <h3>目录</h3>
+            </div>
+            <div id="outlineContent" class="kb-outline-content"></div>
+
+            <div class="kb-sidebar-config">
+                <button id="sidebarConfigToggle" class="kb-sidebar-config-toggle">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>AI 配置</span>
+                    <svg class="kb-config-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div id="sidebarConfigPanel" class="kb-sidebar-config-panel" style="display:none">
+                    <div class="kb-config-field">
+                        <label>Provider</label>
+                        <select id="settingsProvider">
+                            <option value="openai">OpenAI Compatible</option>
+                            <option value="anthropic">Anthropic Claude</option>
+                        </select>
+                    </div>
+                    <div class="kb-config-field">
+                        <label>API Base</label>
+                        <input type="text" id="settingsApiBase" placeholder="https://api.openai.com/v1">
+                    </div>
+                    <div class="kb-config-field">
+                        <label>API Key</label>
+                        <input type="password" id="settingsApiKey" placeholder="sk-...">
+                    </div>
+                    <div class="kb-config-field">
+                        <label>Model</label>
+                        <input type="text" id="settingsModel" placeholder="gpt-4o">
+                    </div>
+                    <div class="kb-config-actions">
+                        <button id="chatSettingsSave" class="kb-config-save">保存</button>
+                        <button id="chatSettingsReset" class="kb-config-reset">重置</button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="kb-main">
+            <div class="kb-search-area">
+                <div class="kb-search-box">
+                    <svg class="kb-search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                    <input type="text" id="searchInput" placeholder="搜索知识库..." autocomplete="off" autofocus>
+                    <kbd class="kb-kbd">Enter</kbd>
+                </div>
+                <div id="searchStatus" class="kb-search-status"></div>
+            </div>
+
+            <div id="contentArea" class="kb-content">
+                <div id="welcomeView" class="kb-welcome">
+                    <svg class="kb-welcome-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
+                    <p>输入关键词搜索，或浏览左侧目录</p>
+                </div>
+
+                <div id="resultsView" class="kb-results" style="display:none"></div>
+                <div id="paginationView" class="kb-pagination" style="display:none"></div>
+
+                <div id="sectionView" class="kb-section-view" style="display:none">
+                    <div class="kb-section-toolbar">
+                        <button id="backToResults" class="kb-back-btn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+                            返回结果
+                        </button>
+                        <div id="matchNav" class="kb-match-nav" style="display:none">
+                            <span id="matchInfo" class="kb-match-info"></span>
+                            <button id="matchPrev" class="kb-match-btn" title="上一个">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                            </button>
+                            <button id="matchNext" class="kb-match-btn" title="下一个">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                        </div>
+                        <div id="sectionBreadcrumb" class="kb-breadcrumb"></div>
+                    </div>
+                    <div class="kb-section-layout">
+                        <div class="kb-section-doc">
+                            <div id="sectionContent" class="kb-document"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <div id="aiPanel" class="kb-ai-panel">
+            <div class="kb-ai-panel-header">
+                <div class="kb-ai-panel-tabs">
+                    <div id="aiTabsBar" class="kb-tabs-scroll"></div>
+                    <button id="aiNewTab" class="kb-tab-new" title="新建">+</button>
+                </div>
+            </div>
+            <div id="aiMessages" class="kb-chat-messages"></div>
+            <div class="kb-chat-input-area">
+                <div class="kb-chat-input-row">
+                    <textarea id="aiChatInput" class="kb-chat-input" placeholder="输入问题..." rows="1"></textarea>
+                    <button id="aiChatSend" class="kb-chat-send" title="发送">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="lightbox" class="kb-lightbox">
+        <div class="kb-lightbox-backdrop"></div>
+        <div class="kb-lightbox-toolbar">
+            <button id="lbZoomOut" class="kb-lb-btn" title="缩小">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M8 11h6"/></svg>
+            </button>
+            <span id="lbZoomLevel" class="kb-lb-zoom">100%</span>
+            <button id="lbZoomIn" class="kb-lb-btn" title="放大">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35M11 8v6M8 11h6"/></svg>
+            </button>
+            <button id="lbReset" class="kb-lb-btn" title="重置">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+            <div class="kb-lb-sep"></div>
+            <button id="lbClose" class="kb-lb-btn" title="关闭 (Esc)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+        </div>
+        <div id="lbViewport" class="kb-lightbox-viewport">
+            <img id="lightboxImg" src="" alt="" draggable="false">
+        </div>
+    </div>
+
+    <div id="selectionTooltip" class="kb-sel-tooltip" style="display:none">
+        <button id="selAskAi" class="kb-sel-btn">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/></svg>
+            发送到AI
+        </button>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+    "knowledgeBase": {
+        "docxPath": "./example_docx/知识库.docx",
+        "databasePath": "./knowledge_base.db",
+        "serverPort": 3000
+    },
+    "ai": {
+        "provider": "openai",
+        "apiBase": "https://nxaiapp.com/v1",
+        "apiKey": "sk-M6Eo0P9G7NaNrZS2z4tYoVh8bH5XICRDKQnFOOR9ONtucsx8",
+        "model": "aws.claude-opus-4-6"
+    }
+}
