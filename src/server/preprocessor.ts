@@ -36,7 +36,7 @@ function stripHtmlTags(html: string): string {
 
 function splitHtmlIntoSections(html: string): SectionData[] {
     const sections: SectionData[] = [];
-    const headingPattern = /<h([12])[^>]*>([\s\S]*?)<\/h[12]>/gi;
+    const headingPattern = /<h([1-6])[^>]*>([\s\S]*?)<\/h[1-6]>/gi;
 
     const headings: Array<{
         index: number;
@@ -72,6 +72,7 @@ function splitHtmlIntoSections(html: string): SectionData[] {
 
     let currentH1: string | null = null;
     let sectionOrder = 0;
+    const parentStack: Array<string | null> = [null, null, null, null, null, null];
 
     if (headings[0].index > 0) {
         const introContent = html.substring(0, headings[0].index).trim();
@@ -92,9 +93,12 @@ function splitHtmlIntoSections(html: string): SectionData[] {
         const heading = headings[i];
         const nextIndex = (i + 1 < headings.length) ? headings[i + 1].index : html.length;
 
-        if (heading.level === 1) {
-            currentH1 = heading.text;
+        parentStack[heading.level - 1] = heading.text;
+        for (let l = heading.level; l < 6; l++) {
+            parentStack[l] = null;
         }
+
+        const parentHeading = heading.level > 1 ? parentStack[heading.level - 2] : null;
 
         const bodyHtml = html.substring(heading.endIndex, nextIndex).trim();
         const fullHtml = heading.fullMatch + bodyHtml;
@@ -106,7 +110,7 @@ function splitHtmlIntoSections(html: string): SectionData[] {
         sections.push({
             heading: heading.text || '(无标题)',
             headingLevel: heading.level,
-            parentHeading: heading.level === 2 ? currentH1 : null,
+            parentHeading: parentHeading,
             headingId: generateHeadingId(heading.text, sectionOrder),
             htmlContent: fullHtml,
             textContent: stripHtmlTags(fullHtml),
@@ -188,7 +192,7 @@ export async function preprocessDocx(docxPath: string, dbPath: string): Promise<
         console.log(`Mammoth warnings (${result.messages.length} total): ${warnings.join('; ')}${result.messages.length > 5 ? '...' : ''}`);
     }
 
-    console.log('Splitting into sections by H1/H2 headings...');
+    console.log('Splitting into sections by headings...');
     const sections = splitHtmlIntoSections(result.value);
     console.log(`Found ${sections.length} sections.`);
 

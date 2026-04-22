@@ -147,24 +147,79 @@ body {
     letter-spacing: 0.05em;
 }
 
-.kb-outline-content { padding: 0 6px 12px; flex: 1; }
+.kb-outline-content { padding: 0 6px 12px; flex: 1; overflow-y: auto; }
+
+.kb-outline-group { margin: 1px 0; }
+
+.kb-outline-parent {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 8px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fg);
+    margin: 2px 0;
+    transition: background 0.2s ease;
+}
+.kb-outline-parent:hover { background: var(--hover); }
+.kb-outline-parent.active { background: var(--active); color: #fff; }
+.kb-outline-parent.level-1 { padding-left: 4px; font-weight: 600; }
+.kb-outline-parent.level-2 { padding-left: 16px; font-weight: 600; }
+.kb-outline-parent.level-3 { padding-left: 28px; }
+.kb-outline-parent.level-4 { padding-left: 40px; }
+.kb-outline-parent.level-5 { padding-left: 52px; }
+.kb-outline-parent.level-6 { padding-left: 64px; }
+
+.kb-outline-label {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+}
+
+.kb-outline-arrow {
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+    color: var(--fg-secondary);
+}
+.kb-outline-group:not(.collapsed) > .kb-outline-parent > .kb-outline-arrow {
+    transform: rotate(90deg);
+}
+
+.kb-outline-children {
+    overflow: hidden;
+    max-height: 2000px;
+    transition: max-height 0.2s ease;
+}
+.kb-outline-group.collapsed > .kb-outline-children {
+    max-height: 0;
+}
 
 .kb-outline-item {
     padding: 4px 8px;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: 4px;
     font-size: 12px;
     color: var(--fg);
-    transition: background 0.1s ease;
+    margin: 2px 0;
+    transition: background 0.2s ease;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .kb-outline-item:hover { background: var(--hover); }
-.kb-outline-item.active { background: var(--active-light); color: var(--active); font-weight: 500; }
-.kb-outline-item.level-1 { padding-left: 8px; font-weight: 600; margin-top: 2px; }
-.kb-outline-item.level-2 { padding-left: 22px; }
+.kb-outline-item.active { background: var(--active); color: #fff; font-weight: 500; }
+.kb-outline-item.level-1 { padding-left: 16px; font-weight: 600; }
+.kb-outline-item.level-2 { padding-left: 28px; }
+.kb-outline-item.level-3 { padding-left: 40px; }
+.kb-outline-item.level-4 { padding-left: 52px; }
+.kb-outline-item.level-5 { padding-left: 64px; }
+.kb-outline-item.level-6 { padding-left: 76px; }
 
 /* Sidebar config section */
 .kb-sidebar-config {

@@ -52,16 +52,86 @@
     }
 
     // Load outline
+    function buildOutlineTree(items) {
+        var root = [];
+        var stack = [];
+
+        items.forEach(function (item) {
+            var node = { item: item, children: [] };
+            while (stack.length > 0 && stack[stack.length - 1].item.heading_level >= item.heading_level) {
+                stack.pop();
+            }
+            if (stack.length > 0) {
+                stack[stack.length - 1].children.push(node);
+            } else {
+                root.push(node);
+            }
+            stack.push(node);
+        });
+
+        return root;
+    }
+
+    function renderOutlineNodes(nodes) {
+        var html = '';
+        nodes.forEach(function (node) {
+            var item = node.item;
+            var hasChildren = node.children.length > 0;
+            var level = item.heading_level;
+
+            if (hasChildren) {
+                html += '<div class="kb-outline-group">';
+                html += '<div class="kb-outline-parent level-' + level + '" data-id="' + item.id + '">';
+                html += '<svg class="kb-outline-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+                html += '<span class="kb-outline-label" title="' + escapeHtml(item.heading) + '">' + escapeHtml(item.heading) + '</span>';
+                html += '</div>';
+                html += '<div class="kb-outline-children">';
+                html += renderOutlineNodes(node.children);
+                html += '</div>';
+                html += '</div>';
+            } else {
+                html += '<div class="kb-outline-item level-' + level + '" data-id="' + item.id + '" title="' + escapeHtml(item.heading) + '">' +
+                    escapeHtml(item.heading) + '</div>';
+            }
+        });
+        return html;
+    }
+
     function loadOutline() {
         fetch('/api/outline')
             .then(function (r) { return r.json(); })
             .then(function (items) {
-                outlineContent.innerHTML = items.map(function (item) {
-                    return '<div class="kb-outline-item level-' + item.heading_level + '" data-id="' + item.id + '" title="' + escapeHtml(item.heading) + '">' +
-                        escapeHtml(item.heading) + '</div>';
-                }).join('');
+                var tree = buildOutlineTree(items);
+                outlineContent.innerHTML = renderOutlineNodes(tree);
+
+                var saved = {};
+                try { saved = JSON.parse(localStorage.getItem('kb-outline-state') || '{}'); } catch (e) { /* ignore */ }
+                outlineContent.querySelectorAll('.kb-outline-group').forEach(function (group) {
+                    var parent = group.querySelector('.kb-outline-parent');
+                    var parentId = parent.getAttribute('data-id');
+                    var level = parseInt(parent.className.match(/level-(\d)/)?.[1] || '1');
+                    if (parentId in saved) {
+                        if (!saved[parentId]) { group.classList.add('collapsed'); }
+                    } else if (level >= 2) {
+                        group.classList.add('collapsed');
+                    }
+                });
 
                 outlineContent.addEventListener('click', function (e) {
+                    var arrow = e.target.closest('.kb-outline-arrow');
+                    var parent = e.target.closest('.kb-outline-parent');
+                    if (arrow && parent) {
+                        var group = parent.parentElement;
+                        group.classList.toggle('collapsed');
+                        saveOutlineState();
+                        e.stopPropagation();
+                        return;
+                    }
+                    if (parent) {
+                        var id = parent.getAttribute('data-id');
+                        loadSection(parseInt(id));
+                        return;
+                    }
                     var target = e.target.closest('.kb-outline-item');
                     if (target) {
                         var id = target.getAttribute('data-id');
@@ -69,6 +139,15 @@
                     }
                 });
             });
+    }
+
+    function saveOutlineState() {
+        var state = {};
+        outlineContent.querySelectorAll('.kb-outline-group').forEach(function (group) {
+            var parentId = group.querySelector('.kb-outline-parent').getAttribute('data-id');
+            state[parentId] = !group.classList.contains('collapsed');
+        });
+        localStorage.setItem('kb-outline-state', JSON.stringify(state));
     }
 
     // Load stats
@@ -301,9 +380,24 @@
                 sectionContent.innerHTML = html;
                 externalizeLinks(sectionContent);
 
-                outlineContent.querySelectorAll('.kb-outline-item').forEach(function (item) {
+                outlineContent.querySelectorAll('.kb-outline-item, .kb-outline-parent').forEach(function (item) {
                     item.classList.toggle('active', parseInt(item.getAttribute('data-id')) === id);
                 });
+
+                var activeEl = outlineContent.querySelector('.kb-outline-item.active, .kb-outline-parent.active');
+                if (activeEl) {
+                    var group = activeEl.closest('.kb-outline-group');
+                    var changed = false;
+                    while (group) {
+                        if (group.classList.contains('collapsed')) {
+                            group.classList.remove('collapsed');
+                            changed = true;
+                        }
+                        group = group.parentElement ? group.parentElement.closest('.kb-outline-group') : null;
+                    }
+                    if (changed) { saveOutlineState(); }
+                    activeEl.scrollIntoView({ block: 'nearest' });
+                }
 
                 var marks = sectionContent.querySelectorAll('mark');
                 totalMatches = marks.length;
@@ -436,7 +530,7 @@
             sectionView.style.display = 'none';
             resultsView.style.display = '';
             paginationView.style.display = '';
-            outlineContent.querySelectorAll('.kb-outline-item.active').forEach(function (el) {
+            outlineContent.querySelectorAll('.kb-outline-item.active, .kb-outline-parent.active').forEach(function (el) {
                 el.classList.remove('active');
             });
         } else {
