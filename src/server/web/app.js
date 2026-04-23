@@ -265,17 +265,48 @@
         }
 
         if (hasSections) {
-            html += data.results.map(function (r) {
-                var breadcrumb = r.parent_heading
-                    ? '<span>' + escapeHtml(r.parent_heading) + '</span> &rsaquo; ' + escapeHtml(r.heading)
-                    : escapeHtml(r.heading);
+            var processKeywords = ['流程', '步骤', '操作', '方法', '指南', '教程', '配置', '设置', '如何', '怎么', '办理'];
+            var processResults = [];
+            var faqResults = [];
 
-                return '<div class="kb-result-card" data-id="' + r.id + '">' +
-                    '<div class="kb-result-heading">' + escapeHtml(r.heading) + '</div>' +
-                    '<div class="kb-result-breadcrumb">' + breadcrumb + '</div>' +
-                    '<div class="kb-result-snippet">' + (r.snippet || '') + '</div>' +
+            data.results.forEach(function (r) {
+                var text = (r.heading || '') + ' ' + (r.parent_heading || '');
+                var isProcess = processKeywords.some(function (kw) { return text.indexOf(kw) !== -1; });
+                if (isProcess) { processResults.push(r); } else { faqResults.push(r); }
+            });
+
+            function renderCards(list) {
+                return list.map(function (r) {
+                    var breadcrumb = r.parent_heading
+                        ? '<span>' + escapeHtml(r.parent_heading) + '</span> &rsaquo; ' + escapeHtml(r.heading)
+                        : escapeHtml(r.heading);
+                    return '<div class="kb-result-card" data-id="' + r.id + '">' +
+                        '<div class="kb-result-heading">' + escapeHtml(r.heading) + '</div>' +
+                        '<div class="kb-result-breadcrumb">' + breadcrumb + '</div>' +
+                        '<div class="kb-result-snippet">' + (r.snippet || '') + '</div>' +
+                        '</div>';
+                }).join('');
+            }
+
+            if (faqResults.length > 0) {
+                html += '<div class="kb-category-section">' +
+                    '<div class="kb-category-header">' +
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>' +
+                    ' 常见问题 <span class="kb-category-count">' + faqResults.length + '</span>' +
+                    '</div>' +
+                    renderCards(faqResults) +
                     '</div>';
-            }).join('');
+            }
+
+            if (processResults.length > 0) {
+                html += '<div class="kb-category-section">' +
+                    '<div class="kb-category-header">' +
+                    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
+                    ' 流程 <span class="kb-category-count">' + processResults.length + '</span>' +
+                    '</div>' +
+                    renderCards(processResults) +
+                    '</div>';
+            }
         }
 
         resultsView.innerHTML = html;
