@@ -8,12 +8,22 @@
     <link rel="stylesheet" href="chat.css">
 </head>
 <body>
+    <!-- Aurora background orbs -->
+    <div class="kb-aurora" aria-hidden="true">
+        <div class="kb-orb kb-orb-1"></div>
+        <div class="kb-orb kb-orb-2"></div>
+        <div class="kb-orb kb-orb-3"></div>
+    </div>
+
     <header class="kb-header">
         <div class="kb-header-left">
             <button id="outlineToggle" class="kb-icon-btn" title="切换目录">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
             </button>
-            <h1 class="kb-title">知识库</h1>
+            <div class="kb-brand">
+                <span class="kb-brand-icon">📚</span>
+                <h1 class="kb-title">知识库</h1>
+            </div>
             <span id="statsInfo" class="kb-stats"></span>
         </div>
         <div class="kb-header-right">
@@ -76,8 +86,11 @@
 
             <div id="contentArea" class="kb-content">
                 <div id="welcomeView" class="kb-welcome">
-                    <svg class="kb-welcome-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
-                    <p>输入关键词搜索，或浏览左侧目录</p>
+                    <div class="kb-welcome-icon-wrap">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8M8 11h6"/></svg>
+                    </div>
+                    <p class="kb-welcome-title">开始探索知识库</p>
+                    <p class="kb-welcome-sub">输入关键词搜索，或浏览左侧目录</p>
                 </div>
 
                 <div id="resultsView" class="kb-results" style="display:none"></div>
@@ -106,7 +119,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </main>
 
