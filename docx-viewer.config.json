@@ -6,8 +6,8 @@
     },
     "ai": {
         "provider": "openai",
-        "apiBase": "https://nxaiapp.com/v1",
-        "apiKey": "sk-M6Eo0P9G7NaNrZS2z4tYoVh8bH5XICRDKQnFOOR9ONtucsx8",
-        "model": "aws.claude-opus-4-6"
+        "apiBase": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "apiKey": "sk-98b6cc62bddf4143a46e3184b3b13db4",
+        "model": "qwen3.5-plus"
     }
 }

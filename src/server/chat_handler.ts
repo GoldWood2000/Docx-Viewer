@@ -27,7 +27,9 @@ function searchRelevantSections(db: Database.Database, query: string, limit: num
                 SELECT heading, substr(text_content, 1, 2000) as text_content
                 FROM sections
                 WHERE heading LIKE ? OR text_content LIKE ?
-                ORDER BY section_order
+                ORDER BY
+                    CASE WHEN heading LIKE '%\u5e38\u89c1\u95ee\u9898%' THEN 0 ELSE 1 END,
+                    section_order
                 LIMIT ?
             `).all(pattern, pattern, limit) as Array<{ heading: string; text_content: string }>;
         } else {
@@ -37,7 +39,9 @@ function searchRelevantSections(db: Database.Database, query: string, limit: num
                 FROM sections_fts
                 JOIN sections s ON s.id = sections_fts.rowid
                 WHERE sections_fts MATCH ?
-                ORDER BY bm25(sections_fts)
+                ORDER BY
+                    CASE WHEN s.heading LIKE '%\u5e38\u89c1\u95ee\u9898%' THEN 0 ELSE 1 END,
+                    bm25(sections_fts)
                 LIMIT ?
             `).all(escaped, limit) as Array<{ heading: string; text_content: string }>;
         }
@@ -51,10 +55,14 @@ function searchRelevantSections(db: Database.Database, query: string, limit: num
 function buildSystemPrompt(contextSections: string[]): string {
     const base = `你是解悠客服部客服助手，严格遵守以下规则：
 1. 只能根据下方提供的知识库内容回答问题，不得自行发散或补充知识库以外的信息。
-2. 如果知识库中没有相关信息，直接回复"抱歉，这个问题我暂时无法解答。"，不要编造任何内容。
-3. 绝对不能编造、猜测或推断知识库未提及的信息。
-4. 回答请分点列出，关键步骤用**加粗**标注。
-5. 你的职责是总结和归纳知识库内容，不是创作新内容。`;
+2. **优先围绕知识库中的"常见问题"章节进行回答**：
+   - 如果用户问题能匹配到"常见问题"中的某条 FAQ，请直接复用该 FAQ 的"处理方案"和"对客响应"内容作答。
+   - 回答应当贴合客服话术风格，参照知识库中"对客响应"的语气和模板。
+   - 若有多条相关 FAQ，请逐条列出，每条标注其问题标题。
+3. 如果知识库中没有相关 FAQ 或内容，直接回复"抱歉，这个问题我暂时无法解答。"，不要编造任何内容。
+4. 绝对不能编造、猜测或推断知识库未提及的信息。
+5. 回答请分点列出，关键步骤用**加粗**标注，操作流程按顺序编号。
+6. 你的职责是基于"常见问题"做答复，而不是创作新内容。`;
 
     if (contextSections.length === 0) {
         return base + '\n\n当前没有检索到相关知识库内容。请直接回复"抱歉，这个问题我暂时无法解答。"';

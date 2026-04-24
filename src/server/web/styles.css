@@ -463,7 +463,12 @@ body {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 16px 0;
+    padding: 12px 0;
+    position: sticky;
+    bottom: 0;
+    background: var(--bg);
+    z-index: 5;
+    margin-top: auto;
 }
 
 .kb-page-btn {
