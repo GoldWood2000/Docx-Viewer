@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
 import type Database from 'better-sqlite3';
+import type { AIConfig } from './config';
+import { embedQuery, vectorSearch } from './vector_search';
 
 interface ChatMessage {
     role: 'user' | 'assistant' | 'system';
@@ -12,6 +14,12 @@ interface ChatRequest {
     apiKey: string;
     model: string;
     provider: 'openai' | 'anthropic';
+}
+
+export interface ChatHandlerOptions {
+    aiConfig?: AIConfig;
+    embeddingsCache?: Map<number, number[]> | null;
+    vectorSearchEnabled?: boolean;
 }
 
 function searchRelevantSections(db: Database.Database, query: string, limit: number = 5): string[] {
@@ -49,6 +57,54 @@ function searchRelevantSections(db: Database.Database, query: string, limit: num
         return rows.map(r => `## ${r.heading}\n${r.text_content}`);
     } catch {
         return [];
+    }
+}
+
+async function searchRelevantSectionsHybrid(
+    db: Database.Database,
+    query: string,
+    options: ChatHandlerOptions | undefined,
+    limit: number = 5
+): Promise<string[]> {
+    const ftsResults = searchRelevantSections(db, query, limit);
+
+    if (!options?.vectorSearchEnabled || !options?.embeddingsCache || !options?.aiConfig?.apiKey) {
+        return ftsResults;
+    }
+
+    try {
+        const ai = options.aiConfig;
+        const queryEmb = await embedQuery(
+            query,
+            ai.apiBase,
+            ai.apiKey,
+            ai.embeddingModel || 'text-embedding-v3',
+            ai.embeddingDimensions || 1024
+        );
+        if (!queryEmb) { return ftsResults; }
+
+        const vecResults = vectorSearch(queryEmb, options.embeddingsCache, limit);
+
+        const seen = new Set(ftsResults);
+        const additions: string[] = [];
+
+        for (const vr of vecResults) {
+            if (ftsResults.length + additions.length >= limit) { break; }
+            const row = db.prepare(
+                'SELECT heading, substr(text_content, 1, 2000) as text_content FROM sections WHERE id = ?'
+            ).get(vr.sectionId) as { heading: string; text_content: string } | undefined;
+            if (row) {
+                const text = `## ${row.heading}\n${row.text_content}`;
+                if (!seen.has(text)) {
+                    additions.push(text);
+                    seen.add(text);
+                }
+            }
+        }
+
+        return [...ftsResults, ...additions].slice(0, limit);
+    } catch {
+        return ftsResults;
     }
 }
 
@@ -209,7 +265,7 @@ async function streamAnthropic(apiBase: string, apiKey: string, model: string, s
     res.end();
 }
 
-export function createChatHandler(db: Database.Database) {
+export function createChatHandler(db: Database.Database, options?: ChatHandlerOptions) {
     return async (req: Request, res: Response): Promise<void> => {
         const { messages, apiBase, apiKey, model, provider } = req.body as ChatRequest;
 
@@ -223,7 +279,7 @@ export function createChatHandler(db: Database.Database) {
         const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
         const query = lastUserMsg?.content || '';
 
-        const contextSections = searchRelevantSections(db, query);
+        const contextSections = await searchRelevantSectionsHybrid(db, query, options);
         const systemPrompt = buildSystemPrompt(contextSections);
 
         res.setHeader('Content-Type', 'text/event-stream');

@@ -210,7 +210,8 @@
                 }
 
                 searchStatus.innerHTML = 'Found <span class="count">' + data.total + '</span> results ' +
-                    '<span class="time">(' + elapsed + 'ms)</span>';
+                    '<span class="time">(' + elapsed + 'ms)</span>' +
+                    (data.searchMode === 'hybrid' ? ' <span class="kb-search-mode">混合搜索</span>' : '');
 
                 showResults(data);
             })
@@ -280,8 +281,16 @@
                     var breadcrumb = r.parent_heading
                         ? '<span>' + escapeHtml(r.parent_heading) + '</span> &rsaquo; ' + escapeHtml(r.heading)
                         : escapeHtml(r.heading);
+                    var badge = '';
+                    if (r.match_type === 'semantic') {
+                        badge = '<span class="kb-match-badge kb-match-semantic" title="语义匹配">语义</span>';
+                    } else if (r.match_type === 'both') {
+                        badge = '<span class="kb-match-badge kb-match-both" title="关键词+语义匹配">混合</span>';
+                    } else if (r.match_type === 'keyword') {
+                        badge = '<span class="kb-match-badge kb-match-keyword" title="关键词匹配">关键词</span>';
+                    }
                     return '<div class="kb-result-card" data-id="' + r.id + '">' +
-                        '<div class="kb-result-heading">' + escapeHtml(r.heading) + '</div>' +
+                        '<div class="kb-result-heading">' + badge + escapeHtml(r.heading) + '</div>' +
                         '<div class="kb-result-breadcrumb">' + breadcrumb + '</div>' +
                         '<div class="kb-result-snippet">' + (r.snippet || '') + '</div>' +
                         '</div>';

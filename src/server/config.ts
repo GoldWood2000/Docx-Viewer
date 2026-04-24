@@ -6,6 +6,7 @@ export interface KBConfig {
     databasePath: string;
     serverPort: number;
     pageSize: number;
+    enableVectorSearch: boolean;
 }
 
 export interface AIConfig {
@@ -13,6 +14,8 @@ export interface AIConfig {
     apiBase: string;
     apiKey: string;
     model: string;
+    embeddingModel: string;
+    embeddingDimensions: number;
 }
 
 export interface AppConfig {
@@ -24,14 +27,17 @@ const DEFAULT_KB: KBConfig = {
     docxPath: './example_docx/知识库.docx',
     databasePath: './knowledge_base.db',
     serverPort: 3000,
-    pageSize: 20
+    pageSize: 20,
+    enableVectorSearch: true
 };
 
 const DEFAULT_AI: AIConfig = {
     provider: 'openai',
     apiBase: '',
     apiKey: '',
-    model: ''
+    model: '',
+    embeddingModel: 'text-embedding-v3',
+    embeddingDimensions: 1024
 };
 
 export function loadConfig(): AppConfig {

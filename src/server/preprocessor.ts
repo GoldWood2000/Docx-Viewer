@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import Database from 'better-sqlite3';
-import { loadConfig } from './config';
+import { loadConfig, type AIConfig } from './config';
+import { embedTexts } from './vector_search';
 
 interface SectionData {
     heading: string;
@@ -150,10 +151,23 @@ function initializeDatabase(db: Database.Database): void {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE section_embeddings (
+            section_id INTEGER PRIMARY KEY,
+            embedding TEXT NOT NULL,
+            model TEXT NOT NULL,
+            dimensions INTEGER NOT NULL,
+            FOREIGN KEY (section_id) REFERENCES sections(id)
+        );
     `);
 }
 
-export async function preprocessDocx(docxPath: string, dbPath: string): Promise<void> {
+interface PreprocessOptions {
+    aiConfig?: AIConfig;
+    enableVectorSearch?: boolean;
+}
+
+export async function preprocessDocx(docxPath: string, dbPath: string, options?: PreprocessOptions): Promise<void> {
     const absolutePath = path.resolve(docxPath);
 
     if (!fs.existsSync(absolutePath)) {
@@ -221,6 +235,39 @@ export async function preprocessDocx(docxPath: string, dbPath: string): Promise<
     upsertMeta.run('total_sections', sections.length.toString());
     upsertMeta.run('source_file', absolutePath);
 
+    if (options?.enableVectorSearch && options?.aiConfig?.apiKey && options?.aiConfig?.apiBase) {
+        const ai = options.aiConfig;
+        const model = ai.embeddingModel || 'text-embedding-v3';
+        const dimensions = ai.embeddingDimensions || 1024;
+
+        console.log(`Generating embeddings (model=${model}, dimensions=${dimensions})...`);
+        const texts = sections.map(s => s.textContent.substring(0, 8000));
+        const embeddings = await embedTexts(texts, ai.apiBase, ai.apiKey, model, dimensions);
+
+        const insertEmb = db.prepare(
+            'INSERT OR REPLACE INTO section_embeddings (section_id, embedding, model, dimensions) VALUES (?, ?, ?, ?)'
+        );
+        const insertEmbMany = db.transaction((items: Array<{ id: number; emb: number[] }>) => {
+            for (const item of items) {
+                insertEmb.run(item.id, JSON.stringify(item.emb), model, dimensions);
+            }
+        });
+
+        const rows: Array<{ id: number; emb: number[] }> = [];
+        for (let i = 0; i < embeddings.length; i++) {
+            if (embeddings[i]) {
+                rows.push({ id: i + 1, emb: embeddings[i]! });
+            }
+        }
+        insertEmbMany(rows);
+
+        upsertMeta.run('embeddings_count', rows.length.toString());
+        upsertMeta.run('embedding_model', model);
+        console.log(`Generated ${rows.length}/${sections.length} embeddings.`);
+    } else {
+        console.log('Vector search disabled or no API key configured, skipping embeddings.');
+    }
+
     db.close();
 
     const dbSize = (fs.statSync(dbPath).size / 1024 / 1024).toFixed(1);
@@ -229,7 +276,10 @@ export async function preprocessDocx(docxPath: string, dbPath: string): Promise<
 
 if (require.main === module) {
     const config = loadConfig();
-    preprocessDocx(config.kb.docxPath, config.kb.databasePath).catch(err => {
+    preprocessDocx(config.kb.docxPath, config.kb.databasePath, {
+        aiConfig: config.ai,
+        enableVectorSearch: config.kb.enableVectorSearch
+    }).catch(err => {
         console.error('Preprocessing failed:', err);
         process.exit(1);
     });
