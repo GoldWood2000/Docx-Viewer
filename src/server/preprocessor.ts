@@ -14,6 +14,7 @@ interface SectionData {
     htmlContent: string;
     textContent: string;
     sectionOrder: number;
+    isFaq: number;
 }
 
 function computeFileHash(filePath: string): string {
@@ -66,7 +67,8 @@ function splitHtmlIntoSections(html: string): SectionData[] {
             headingId: 'full-document',
             htmlContent: html,
             textContent: stripHtmlTags(html),
-            sectionOrder: 0
+            sectionOrder: 0,
+            isFaq: 0
         });
         return sections;
     }
@@ -85,7 +87,8 @@ function splitHtmlIntoSections(html: string): SectionData[] {
                 headingId: 'introduction',
                 htmlContent: introContent,
                 textContent: stripHtmlTags(introContent),
-                sectionOrder: sectionOrder++
+                sectionOrder: sectionOrder++,
+                isFaq: 0
             });
         }
     }
@@ -108,6 +111,9 @@ function splitHtmlIntoSections(html: string): SectionData[] {
             continue;
         }
 
+        const ancestorChain = parentStack.slice(0, heading.level).filter(Boolean) as string[];
+        const isFaq = ancestorChain.some(h => h.indexOf('常见问题') !== -1) ? 1 : 0;
+
         sections.push({
             heading: heading.text || '(无标题)',
             headingLevel: heading.level,
@@ -115,7 +121,8 @@ function splitHtmlIntoSections(html: string): SectionData[] {
             headingId: generateHeadingId(heading.text, sectionOrder),
             htmlContent: fullHtml,
             textContent: stripHtmlTags(fullHtml),
-            sectionOrder: sectionOrder++
+            sectionOrder: sectionOrder++,
+            isFaq: isFaq
         });
     }
 
@@ -138,7 +145,8 @@ function initializeDatabase(db: Database.Database): void {
             heading_id TEXT NOT NULL,
             html_content TEXT NOT NULL,
             text_content TEXT NOT NULL,
-            section_order INTEGER NOT NULL
+            section_order INTEGER NOT NULL,
+            is_faq INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE VIRTUAL TABLE sections_fts USING fts5(
@@ -215,13 +223,13 @@ export async function preprocessDocx(docxPath: string, dbPath: string, options?:
     initializeDatabase(db);
 
     const insert = db.prepare(`
-        INSERT INTO sections (heading, heading_level, parent_heading, heading_id, html_content, text_content, section_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sections (heading, heading_level, parent_heading, heading_id, html_content, text_content, section_order, is_faq)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertMany = db.transaction((items: SectionData[]) => {
         for (const s of items) {
-            insert.run(s.heading, s.headingLevel, s.parentHeading, s.headingId, s.htmlContent, s.textContent, s.sectionOrder);
+            insert.run(s.heading, s.headingLevel, s.parentHeading, s.headingId, s.htmlContent, s.textContent, s.sectionOrder, s.isFaq);
         }
     });
 

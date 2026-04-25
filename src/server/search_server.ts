@@ -114,7 +114,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                 total = countResult.total;
 
                 results = db.prepare(`
-                    SELECT id, heading, heading_level, parent_heading, heading_id, section_order,
+                    SELECT id, heading, heading_level, parent_heading, heading_id, section_order, is_faq,
                            substr(text_content, max(1, instr(lower(text_content), lower(?)) - 60), 200) as snippet
                     FROM sections
                     WHERE heading LIKE ? OR text_content LIKE ?
@@ -130,7 +130,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                 total = countResult.total;
 
                 results = db.prepare(`
-                    SELECT s.id, s.heading, s.heading_level, s.parent_heading, s.heading_id, s.section_order,
+                    SELECT s.id, s.heading, s.heading_level, s.parent_heading, s.heading_id, s.section_order, s.is_faq,
                            snippet(sections_fts, 1, '<mark>', '</mark>', '...', 64) as snippet
                     FROM sections_fts
                     JOIN sections s ON s.id = sections_fts.rowid
@@ -191,7 +191,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                         if (missingIds.length > 0) {
                             const placeholders = missingIds.map(() => '?').join(',');
                             const extraRows = db.prepare(`
-                                SELECT id, heading, heading_level, parent_heading, heading_id, section_order,
+                                SELECT id, heading, heading_level, parent_heading, heading_id, section_order, is_faq,
                                        substr(text_content, 1, 200) as snippet
                                 FROM sections WHERE id IN (${placeholders})
                             `).all(...missingIds) as Array<Record<string, unknown>>;

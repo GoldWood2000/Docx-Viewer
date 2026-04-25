@@ -266,14 +266,15 @@
         }
 
         if (hasSections) {
-            var processKeywords = ['流程', '步骤', '操作', '方法', '指南', '教程', '配置', '设置', '如何', '怎么', '办理'];
             var processResults = [];
             var faqResults = [];
 
             data.results.forEach(function (r) {
-                var text = (r.heading || '') + ' ' + (r.parent_heading || '');
-                var isProcess = processKeywords.some(function (kw) { return text.indexOf(kw) !== -1; });
-                if (isProcess) { processResults.push(r); } else { faqResults.push(r); }
+                if (r.is_faq) {
+                    faqResults.push(r);
+                } else {
+                    processResults.push(r);
+                }
             });
 
             function renderCards(list) {
