@@ -18,9 +18,15 @@ export interface AIConfig {
     embeddingDimensions: number;
 }
 
+export interface UIConfig {
+    collapseProcess: boolean;
+    collapseFaq: boolean;
+}
+
 export interface AppConfig {
     kb: KBConfig;
     ai: AIConfig;
+    ui: UIConfig;
 }
 
 const DEFAULT_KB: KBConfig = {
@@ -40,16 +46,23 @@ const DEFAULT_AI: AIConfig = {
     embeddingDimensions: 1024
 };
 
+const DEFAULT_UI: UIConfig = {
+    collapseProcess: true,
+    collapseFaq: false
+};
+
 export function loadConfig(): AppConfig {
     const configPath = path.resolve('docx-viewer.config.json');
     let fileKB: Partial<KBConfig> = {};
     let fileAI: Partial<AIConfig> = {};
+    let fileUI: Partial<UIConfig> = {};
 
     if (fs.existsSync(configPath)) {
         try {
             const raw = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
             fileKB = raw.knowledgeBase || {};
             fileAI = raw.ai || {};
+            fileUI = raw.ui || {};
         } catch {
             console.warn('Failed to parse config file, using defaults.');
         }
@@ -65,6 +78,7 @@ export function loadConfig(): AppConfig {
 
     return {
         kb: { ...DEFAULT_KB, ...fileKB, ...cliConfig },
-        ai: { ...DEFAULT_AI, ...fileAI }
+        ai: { ...DEFAULT_AI, ...fileAI },
+        ui: { ...DEFAULT_UI, ...fileUI }
     };
 }

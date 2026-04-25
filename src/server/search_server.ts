@@ -2,11 +2,11 @@ import express from 'express';
 import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
-import { loadConfig, type AIConfig } from './config';
+import { loadConfig, type AIConfig, type UIConfig } from './config';
 import { createChatHandler } from './chat_handler';
 import { loadEmbeddingsCache, embedQuery, vectorSearch } from './vector_search';
 
-export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, enableVectorSearch?: boolean): void {
+export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, enableVectorSearch?: boolean, uiConfig?: UIConfig): void {
     const resolvedDbPath = path.resolve(dbPath);
 
     if (!fs.existsSync(resolvedDbPath)) {
@@ -103,6 +103,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
             let total: number;
 
             const needsLikeFallback = query.length < 3 || /^[\u4e00-\u9fff]{1,2}$/.test(query);
+            const CANDIDATE_LIMIT = 100;
 
             if (needsLikeFallback) {
                 const likePattern = `%${query}%`;
@@ -119,8 +120,8 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                     FROM sections
                     WHERE heading LIKE ? OR text_content LIKE ?
                     ORDER BY section_order
-                    LIMIT ? OFFSET ?
-                `).all(query, likePattern, likePattern, limit, offset) as Array<Record<string, unknown>>;
+                    LIMIT ?
+                `).all(query, likePattern, likePattern, CANDIDATE_LIMIT) as Array<Record<string, unknown>>;
             } else {
                 const escapedQuery = `"${query.replace(/"/g, '""')}"`;
 
@@ -136,13 +137,13 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                     JOIN sections s ON s.id = sections_fts.rowid
                     WHERE sections_fts MATCH ?
                     ORDER BY bm25(sections_fts)
-                    LIMIT ? OFFSET ?
-                `).all(escapedQuery, limit, offset) as Array<Record<string, unknown>>;
+                    LIMIT ?
+                `).all(escapedQuery, CANDIDATE_LIMIT) as Array<Record<string, unknown>>;
             }
 
             let searchMode: 'keyword' | 'hybrid' = 'keyword';
 
-            if (hybridAvailable && embeddingsCache && aiConfig && page === 1) {
+            if (hybridAvailable && embeddingsCache && aiConfig) {
                 try {
                     const queryEmb = await embedQuery(
                         query,
@@ -153,7 +154,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                     );
 
                     if (queryEmb) {
-                        const vecResults = vectorSearch(queryEmb, embeddingsCache, limit);
+                        const vecResults = vectorSearch(queryEmb, embeddingsCache, 30);
                         searchMode = 'hybrid';
 
                         const ftsMap = new Map<number, number>();
@@ -183,7 +184,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                             }
                         }
 
-                        const sorted = [...combined.entries()].sort((a, b) => b[1].score - a[1].score).slice(0, limit);
+                        const sorted = [...combined.entries()].sort((a, b) => b[1].score - a[1].score);
 
                         const existingIds = new Set(results.map(r => r.id as number));
                         const missingIds = sorted.map(([id]) => id).filter(id => !existingIds.has(id));
@@ -201,7 +202,7 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                         const resultMap = new Map<number, Record<string, unknown>>();
                         for (const r of results) { resultMap.set(r.id as number, r); }
 
-                        results = sorted
+                        const allRanked = sorted
                             .map(([id, scores]) => {
                                 const r = resultMap.get(id);
                                 if (!r) { return null; }
@@ -209,11 +210,16 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
                             })
                             .filter((r): r is Record<string, unknown> => r !== null);
 
-                        total = Math.max(total, combined.size);
+                        total = allRanked.length;
+                        results = allRanked.slice(offset, offset + limit);
+                    } else {
+                        results = results.slice(offset, offset + limit);
                     }
                 } catch {
-                    // vector search failed, keep keyword results
+                    results = results.slice(offset, offset + limit);
                 }
+            } else {
+                results = results.slice(offset, offset + limit);
             }
 
             res.json({
@@ -277,6 +283,10 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
         res.json(aiConfig || { provider: '', apiBase: '', apiKey: '', model: '' });
     });
 
+    app.get('/api/ui-config', (_req, res) => {
+        res.json(uiConfig || { collapseProcess: true, collapseFaq: false });
+    });
+
     app.post('/api/qa', (req, res) => {
         const { question, answer, section_id } = req.body;
         if (!question || !answer) {
@@ -331,5 +341,5 @@ export function startServer(dbPath: string, port: number, aiConfig?: AIConfig, e
 
 if (require.main === module) {
     const config = loadConfig();
-    startServer(config.kb.databasePath, config.kb.serverPort, config.ai, config.kb.enableVectorSearch);
+    startServer(config.kb.databasePath, config.kb.serverPort, config.ai, config.kb.enableVectorSearch, config.ui);
 }

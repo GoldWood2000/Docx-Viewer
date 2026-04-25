@@ -23,6 +23,14 @@
     let currentQuery = '';
     let currentPage = 1;
     let lastResults = null;
+    let uiConfig = { collapseProcess: true, collapseFaq: false };
+
+    fetch('/api/ui-config').then(function (r) { return r.json(); }).then(function (cfg) {
+        if (cfg) {
+            if (typeof cfg.collapseProcess === 'boolean') { uiConfig.collapseProcess = cfg.collapseProcess; }
+            if (typeof cfg.collapseFaq === 'boolean') { uiConfig.collapseFaq = cfg.collapseFaq; }
+        }
+    }).catch(function () { /* keep defaults */ });
     let currentMatchIndex = 0;
     let totalMatches = 0;
 
@@ -239,7 +247,7 @@
 
         if (!hasQA && !hasSections) {
             resultsView.innerHTML = '<div class="kb-welcome"><p>No results found. Try a different keyword.</p></div>';
-            paginationView.style.display = 'none';
+            renderPagination(data);
             return;
         }
 
@@ -298,23 +306,29 @@
                 }).join('');
             }
 
+            var chevronSvg = '<span class="kb-category-chevron"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg></span>';
+
             if (faqResults.length > 0) {
-                html += '<div class="kb-category-section">' +
+                var faqCollapsed = uiConfig.collapseFaq ? ' collapsed' : '';
+                html += '<div class="kb-category-section' + faqCollapsed + '" data-category="faq">' +
                     '<div class="kb-category-header">' +
+                    chevronSvg +
                     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>' +
                     ' 常见问题 <span class="kb-category-count">' + faqResults.length + '</span>' +
                     '</div>' +
-                    renderCards(faqResults) +
+                    '<div class="kb-category-body">' + renderCards(faqResults) + '</div>' +
                     '</div>';
             }
 
             if (processResults.length > 0) {
-                html += '<div class="kb-category-section">' +
+                var procCollapsed = uiConfig.collapseProcess ? ' collapsed' : '';
+                html += '<div class="kb-category-section' + procCollapsed + '" data-category="process">' +
                     '<div class="kb-category-header">' +
+                    chevronSvg +
                     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>' +
                     ' 流程 <span class="kb-category-count">' + processResults.length + '</span>' +
                     '</div>' +
-                    renderCards(processResults) +
+                    '<div class="kb-category-body">' + renderCards(processResults) + '</div>' +
                     '</div>';
             }
         }
@@ -350,6 +364,13 @@
             card.addEventListener('click', function () {
                 var id = parseInt(card.getAttribute('data-id'));
                 loadSection(id);
+            });
+        });
+
+        // Category collapse handlers
+        resultsView.querySelectorAll('.kb-category-section .kb-category-header').forEach(function (header) {
+            header.addEventListener('click', function () {
+                header.parentElement.classList.toggle('collapsed');
             });
         });
 

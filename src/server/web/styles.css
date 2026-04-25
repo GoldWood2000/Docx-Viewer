@@ -641,10 +641,9 @@ body {
     font-size: 14px;
     color: var(--fg-secondary);
     line-height: 1.6;
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
 }
 
 .kb-result-snippet mark {
@@ -918,6 +917,23 @@ body {
     margin-bottom: 8px;
     border-bottom: 1px solid var(--border);
     letter-spacing: -0.01em;
+    cursor: pointer;
+    user-select: none;
+}
+
+.kb-category-header:hover { background: var(--bg-hover, transparent); }
+
+.kb-category-chevron {
+    display: inline-flex;
+    transition: transform 0.18s ease;
+}
+
+.kb-category-section.collapsed .kb-category-chevron {
+    transform: rotate(-90deg);
+}
+
+.kb-category-section.collapsed .kb-category-body {
+    display: none;
 }
 
 .kb-category-count {
