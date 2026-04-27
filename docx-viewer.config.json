@@ -9,5 +9,9 @@
         "apiBase": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "apiKey": "sk-98b6cc62bddf4143a46e3184b3b13db4",
         "model": "qwen3.5-plus"
+    },
+    "ui": {
+        "collapseProcess": true,
+        "collapseFaq": false
     }
 }

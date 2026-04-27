@@ -3,7 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import Database from 'better-sqlite3';
-import { loadConfig } from './config';
+import { loadConfig, type AIConfig } from './config';
+import { embedTexts } from './vector_search';
 
 interface SectionData {
     heading: string;
@@ -13,6 +14,7 @@ interface SectionData {
     htmlContent: string;
     textContent: string;
     sectionOrder: number;
+    isFaq: number;
 }
 
 function computeFileHash(filePath: string): string {
@@ -65,7 +67,8 @@ function splitHtmlIntoSections(html: string): SectionData[] {
             headingId: 'full-document',
             htmlContent: html,
             textContent: stripHtmlTags(html),
-            sectionOrder: 0
+            sectionOrder: 0,
+            isFaq: 0
         });
         return sections;
     }
@@ -84,7 +87,8 @@ function splitHtmlIntoSections(html: string): SectionData[] {
                 headingId: 'introduction',
                 htmlContent: introContent,
                 textContent: stripHtmlTags(introContent),
-                sectionOrder: sectionOrder++
+                sectionOrder: sectionOrder++,
+                isFaq: 0
             });
         }
     }
@@ -107,6 +111,9 @@ function splitHtmlIntoSections(html: string): SectionData[] {
             continue;
         }
 
+        const ancestorChain = parentStack.slice(0, heading.level).filter(Boolean) as string[];
+        const isFaq = ancestorChain.some(h => h.indexOf('常见问题') !== -1) ? 1 : 0;
+
         sections.push({
             heading: heading.text || '(无标题)',
             headingLevel: heading.level,
@@ -114,7 +121,8 @@ function splitHtmlIntoSections(html: string): SectionData[] {
             headingId: generateHeadingId(heading.text, sectionOrder),
             htmlContent: fullHtml,
             textContent: stripHtmlTags(fullHtml),
-            sectionOrder: sectionOrder++
+            sectionOrder: sectionOrder++,
+            isFaq: isFaq
         });
     }
 
@@ -137,7 +145,8 @@ function initializeDatabase(db: Database.Database): void {
             heading_id TEXT NOT NULL,
             html_content TEXT NOT NULL,
             text_content TEXT NOT NULL,
-            section_order INTEGER NOT NULL
+            section_order INTEGER NOT NULL,
+            is_faq INTEGER NOT NULL DEFAULT 0
         );
 
         CREATE VIRTUAL TABLE sections_fts USING fts5(
@@ -150,10 +159,23 @@ function initializeDatabase(db: Database.Database): void {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE section_embeddings (
+            section_id INTEGER PRIMARY KEY,
+            embedding TEXT NOT NULL,
+            model TEXT NOT NULL,
+            dimensions INTEGER NOT NULL,
+            FOREIGN KEY (section_id) REFERENCES sections(id)
+        );
     `);
 }
 
-export async function preprocessDocx(docxPath: string, dbPath: string): Promise<void> {
+interface PreprocessOptions {
+    aiConfig?: AIConfig;
+    enableVectorSearch?: boolean;
+}
+
+export async function preprocessDocx(docxPath: string, dbPath: string, options?: PreprocessOptions): Promise<void> {
     const absolutePath = path.resolve(docxPath);
 
     if (!fs.existsSync(absolutePath)) {
@@ -201,13 +223,13 @@ export async function preprocessDocx(docxPath: string, dbPath: string): Promise<
     initializeDatabase(db);
 
     const insert = db.prepare(`
-        INSERT INTO sections (heading, heading_level, parent_heading, heading_id, html_content, text_content, section_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO sections (heading, heading_level, parent_heading, heading_id, html_content, text_content, section_order, is_faq)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const insertMany = db.transaction((items: SectionData[]) => {
         for (const s of items) {
-            insert.run(s.heading, s.headingLevel, s.parentHeading, s.headingId, s.htmlContent, s.textContent, s.sectionOrder);
+            insert.run(s.heading, s.headingLevel, s.parentHeading, s.headingId, s.htmlContent, s.textContent, s.sectionOrder, s.isFaq);
         }
     });
 
@@ -221,6 +243,39 @@ export async function preprocessDocx(docxPath: string, dbPath: string): Promise<
     upsertMeta.run('total_sections', sections.length.toString());
     upsertMeta.run('source_file', absolutePath);
 
+    if (options?.enableVectorSearch && options?.aiConfig?.apiKey && options?.aiConfig?.apiBase) {
+        const ai = options.aiConfig;
+        const model = ai.embeddingModel || 'text-embedding-v3';
+        const dimensions = ai.embeddingDimensions || 1024;
+
+        console.log(`Generating embeddings (model=${model}, dimensions=${dimensions})...`);
+        const texts = sections.map(s => s.textContent.substring(0, 8000));
+        const embeddings = await embedTexts(texts, ai.apiBase, ai.apiKey, model, dimensions);
+
+        const insertEmb = db.prepare(
+            'INSERT OR REPLACE INTO section_embeddings (section_id, embedding, model, dimensions) VALUES (?, ?, ?, ?)'
+        );
+        const insertEmbMany = db.transaction((items: Array<{ id: number; emb: number[] }>) => {
+            for (const item of items) {
+                insertEmb.run(item.id, JSON.stringify(item.emb), model, dimensions);
+            }
+        });
+
+        const rows: Array<{ id: number; emb: number[] }> = [];
+        for (let i = 0; i < embeddings.length; i++) {
+            if (embeddings[i]) {
+                rows.push({ id: i + 1, emb: embeddings[i]! });
+            }
+        }
+        insertEmbMany(rows);
+
+        upsertMeta.run('embeddings_count', rows.length.toString());
+        upsertMeta.run('embedding_model', model);
+        console.log(`Generated ${rows.length}/${sections.length} embeddings.`);
+    } else {
+        console.log('Vector search disabled or no API key configured, skipping embeddings.');
+    }
+
     db.close();
 
     const dbSize = (fs.statSync(dbPath).size / 1024 / 1024).toFixed(1);
@@ -229,7 +284,10 @@ export async function preprocessDocx(docxPath: string, dbPath: string): Promise<
 
 if (require.main === module) {
     const config = loadConfig();
-    preprocessDocx(config.kb.docxPath, config.kb.databasePath).catch(err => {
+    preprocessDocx(config.kb.docxPath, config.kb.databasePath, {
+        aiConfig: config.ai,
+        enableVectorSearch: config.kb.enableVectorSearch
+    }).catch(err => {
         console.error('Preprocessing failed:', err);
         process.exit(1);
     });
